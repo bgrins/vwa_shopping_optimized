@@ -1,6 +1,8 @@
 .DS_Store
 *.tar
-shopping_extracted
+shopping_extracted/magento2/pub/media
+shopping_extracted/magento2/dev
+shopping_extracted/mysql_data
 backup_cache
 
 shopping_extracted_avif
