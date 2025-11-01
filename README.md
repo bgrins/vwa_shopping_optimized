@@ -35,8 +35,11 @@ cd scripts && ./optimize_vips.sh
 
 # Other optimization scripts available:
 ./scripts/optimize_images.sh test      # Test different quality levels
-./scripts/optimize_jpg50.sh           # Optimize to 50% quality
+./scripts/optimize_jpeg_quality.sh 30  # Optimize to 30% quality (aggressive)
+./scripts/optimize_jpeg_quality.sh 50  # Optimize to 50% quality (balanced)
+./scripts/optimize_jpeg_quality.sh 70  # Optimize to 70% quality (conservative)
 ./scripts/optimize_avif.sh            # Convert to AVIF format
 ./scripts/analyze_product.sh "product-slug"  # Analyze product cache
+./scripts/analyze_tiny_images.sh      # Analyze tiny image optimization potential
 ```
 
