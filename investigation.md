@@ -24,6 +24,10 @@ docker images shopping_final_0712 --format "table {{.Repository}}\t{{.Tag}}\t{{.
 docker history shopping_final_0712 --no-trunc --format "table {{.Size}}\t{{.CreatedBy}}"
 
 ```
+```
+docker exec shopping rm -r /var/www/magento2/pub/media/catalog/product/cache  
+docker exec shopping mkdir -p /var/www/magento2/pub/media/catalog/product/cache && docker exec shopping chown www-data:www-data /var/www/magento2/pub/media/catalog/product/cache
+
 
 ```
 docker cp shopping:/docker-entrypoint.sh shopping_base_image/docker-entrypoint.sh && docker cp shopping:/etc/supervisor.d shopping_base_image/supervisor.d

@@ -23,23 +23,30 @@ docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule cat
 docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock
 ```
 
+Copy files from base image
+```
+
+# Remove enormous & unnecessary cache dir before copying
+docker exec shopping rm -r /var/www/magento2/pub/media/catalog/product/cache 
+docker exec shopping mkdir -p /var/www/magento2/pub/media/catalog/product/cache && docker exec shopping chown www-data:www-data /var/www/magento2/pub/media/catalog/product/cache
+
+docker cp shopping:/docker-entrypoint.sh shopping_base_image/docker-entrypoint.sh && docker cp shopping:/etc/supervisor.d shopping_base_image/supervisor.d
+docker cp shopping:/etc/supervisord.conf shopping_base_image/supervisord.conf
+docker cp shopping:/etc/nginx/conf.d/default.conf shopping_base_image/nginx-default.conf
+docker cp shopping:/var/www/magento2 shopping_extracted/
+```
+
 Optimize images
 ```
 cp -r shopping_extracted/magento2/pub/media/catalog/product shopping_extracted_backup
 
-# Scripts can be called from anywhere - they auto-detect paths
-./scripts/optimize_vips.sh
-
-# Or from the scripts directory
-cd scripts && ./optimize_vips.sh
-
 # Other optimization scripts available:
-./scripts/optimize_images.sh test      # Test different quality levels
-./scripts/optimize_jpeg_quality.sh 30  # Optimize to 30% quality (aggressive)
-./scripts/optimize_jpeg_quality.sh 50  # Optimize to 50% quality (balanced)
-./scripts/optimize_jpeg_quality.sh 70  # Optimize to 70% quality (conservative)
-./scripts/optimize_avif.sh            # Convert to AVIF format
-./scripts/analyze_product.sh "product-slug"  # Analyze product cache
-./scripts/analyze_tiny_images.sh      # Analyze tiny image optimization potential
+./scripts/optimize_images.sh test
+./scripts/optimize_jpeg_quality.sh 30
+./scripts/optimize_jpeg_quality.sh 50
+./scripts/optimize_jpeg_quality.sh 70
+./scripts/optimize_avif.sh
+./scripts/analyze_product.sh "product-slug"
+./scripts/analyze_tiny_images.sh
 ```
 
