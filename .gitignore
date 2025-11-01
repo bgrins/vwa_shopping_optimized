@@ -1,2 +1,8 @@
 .DS_Store
 *.tar
+shopping_extracted
+backup_cache
+
+shopping_extracted_avif
+shopping_extracted_backup
+shopping_extracted_jpg50
