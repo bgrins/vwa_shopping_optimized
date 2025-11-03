@@ -1,12 +1,11 @@
 .DS_Store
 *.tar
-shopping_extracted/magento2/pub/media
-shopping_extracted/magento2/dev
-shopping_extracted/mysql_data
+shopping_base_image/shopping_extracted/magento2/pub/media
+shopping_base_image/shopping_extracted/magento2/dev
+shopping_base_image/shopping_extracted/mysql_data
 backup_cache
 
 shopping_docker_rebuild/mysql-baked/magento_dump.sql
+shopping_docker_rebuild/mysql-baked/magento_dump.sql.xz
 
-shopping_extracted_avif
-shopping_extracted_backup
-shopping_extracted_jpg*
+shopping_extracted_*

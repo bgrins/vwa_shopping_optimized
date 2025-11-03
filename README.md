@@ -25,27 +25,26 @@ docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule cat
 
 Copy files from base image
 ```
- docker exec shopping mysqldump --no-tablespaces -u root -p1234567890 magentodb > shopping_docker_rebuild/mysql-baked/magento_dump.sql
+docker exec shopping mysqldump --no-tablespaces -u root -p1234567890 magentodb > shopping_docker_rebuild/mysql-baked/magento_dump.sql
+xz -9 -k shopping_docker_rebuild/mysql-baked/magento_dump.sql
 
 # Remove enormous & unnecessary cache dir before copying
-docker exec shopping rm -r /var/www/magento2/pub/media/catalog/product/cache 
-docker exec shopping mkdir -p /var/www/magento2/pub/media/catalog/product/cache && docker exec shopping chown www-data:www-data /var/www/magento2/pub/media/catalog/product/cache
+docker exec shopping rm -r /var/www/magento2/pub
 
-docker cp shopping:/docker-entrypoint.sh shopping_base_image/docker-entrypoint.sh && docker cp shopping:/etc/supervisor.d shopping_base_image/supervisor.d
 docker cp shopping:/etc/supervisord.conf shopping_base_image/supervisord.conf
 docker cp shopping:/etc/nginx/conf.d/default.conf shopping_base_image/nginx-default.conf
-docker cp shopping:/var/www/magento2 shopping_extracted/
+docker cp shopping:/var/www/magento2 shopping_base_image/shopping_extracted/
 
-cp -r shopping_extracted/magento2/pub/media/catalog/product shopping_extracted_backup
-rm -r shopping_extracted/magento2/pub/media/catalog/product
-rm -r shopping_extracted/magento2/dev
+cp -r shopping_base_image/shopping_extracted/magento2/pub/media/catalog/product shopping_extracted_backup
+rm -r shopping_base_image/shopping_extracted/magento2/pub/media/catalog/product
+rm -r shopping_base_image/shopping_extracted/magento2/dev
 ```
 
 Optimize images
 ```
-./scripts/optimize_jpeg_quality.sh 10
-find shopping_extracted_jpg10 -name "*.done" -delete
-mv shopping_extracted_jpg10 shopping_extracted/magento2/pub/media/catalog/product
+./scripts/optimize_jpeg_quality.sh 30
+find shopping_extracted_jpg30 -name "*.done" -delete
+cp -r shopping_extracted_jpg30/* shopping_base_image/shopping_extracted/magento2/pub/media/catalog/product/
 ```
 
 
