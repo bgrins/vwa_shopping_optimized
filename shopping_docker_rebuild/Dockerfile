@@ -2,9 +2,9 @@ FROM bgrins/vwa-shopping-optimized-base:latest AS base
 
 WORKDIR /var/www/magento2
 
-COPY nginx-default.conf /etc/nginx/http.d/magento.conf
 COPY entrypoint.sh /docker-entrypoint.sh
-RUN chmod +x /docker-entrypoint.sh
+COPY update-magento-urls.sh /usr/local/bin/update-magento-urls.sh
+RUN chmod +x /docker-entrypoint.sh /usr/local/bin/update-magento-urls.sh
 
 FROM base AS with-mysql
 # Store MySQL data as template to be restored on first run

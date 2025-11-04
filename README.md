@@ -1,15 +1,16 @@
+## Running
+
+
+## First time setup
 
 Download https://drive.usercontent.google.com/download?id=1gxXalk9O0p9eu1YkIJcmZta1nvvyAJpA&export=download&authuser=0
 
 ```
-
 docker load --input shopping_final_0712.tar
 docker run --name shopping -p 7770:80 -d shopping_final_0712
 docker exec shopping /var/www/magento2/bin/magento setup:store-config:set --base-url="http://localhost:7770"
 docker exec shopping mysql -u magentouser -pMyPassword magentodb -e 'UPDATE core_config_data SET value="http://localhost:7770/" WHERE path = "web/secure/base_url";'
 docker exec shopping /var/www/magento2/bin/magento cache:flush
-
-# Todo - move these into docker entrypoint and/or db seed data
 docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product
 docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule
 docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext
@@ -47,4 +48,8 @@ find shopping_extracted_jpg30 -name "*.done" -delete
 cp -r shopping_extracted_jpg30/* shopping_base_image/shopping_extracted/magento2/pub/media/catalog/product/
 ```
 
-
+Run
+```
+./build-and-push.sh
+docker compose up -d
+```

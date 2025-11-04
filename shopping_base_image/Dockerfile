@@ -71,12 +71,11 @@ RUN adduser -D -h /usr/share/java/elasticsearch elastico && \
     echo 'sleep infinity' >> /usr/bin/elasticsearch && \
     chmod +x /usr/bin/elasticsearch
 
-COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY supervisor.d /etc/supervisor.d
 COPY supervisord.conf /etc/supervisord.conf
+COPY nginx-default.conf /etc/nginx/http.d/magento.conf
 
-RUN chmod +x /docker-entrypoint.sh && \
-    rm -f /etc/nginx/http.d/default.conf /etc/nginx/conf.d/default.conf && \
+RUN rm -f /etc/nginx/http.d/default.conf /etc/nginx/conf.d/default.conf && \
     echo -e "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0" >> /etc/my.cnf
 
 RUN mkdir -p /var/www/magento2 && \
@@ -86,6 +85,3 @@ RUN mkdir -p /var/www/magento2 && \
 COPY --chown=nginx:nginx shopping_extracted/magento2 /var/www/magento2
 
 EXPOSE 80 3306 9200 6379 88 25
-
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["supervisord", "-n", "-j", "/supervisord.pid"]

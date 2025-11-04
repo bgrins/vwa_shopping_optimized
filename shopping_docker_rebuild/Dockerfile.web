@@ -12,9 +12,6 @@ WORKDIR /var/www/magento2
 # Copy only the application files
 COPY --from=extractor /var/www/magento2 /var/www/magento2
 
-# Copy nginx configuration
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
-
 # Copy web-only entrypoint
 COPY entrypoint-web.sh /docker-entrypoint-web.sh
 RUN chmod +x /docker-entrypoint-web.sh

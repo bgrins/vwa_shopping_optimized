@@ -39,25 +39,29 @@ echo "MySQL is ready!"
 
 # Configure Magento directly (always run to ensure BASE_URL is correct)
 echo "Configuring Magento base URL to $BASE_URL..."
-php81 /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" || true
+# This may fail if Redis isn't up yet, that's OK
+php81 /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" 2>/dev/null || true
 
 # Update database configuration
 echo "Updating ALL database URLs to $BASE_URL/..."
-mysql -h$MYSQL_HOST -P$MYSQL_PORT -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "UPDATE core_config_data SET value='$BASE_URL/' WHERE path LIKE '%base_url%';" || true
+# This MUST succeed - no || true here
+mysql -h$MYSQL_HOST -P$MYSQL_PORT -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "UPDATE core_config_data SET value='$BASE_URL/' WHERE path LIKE '%base_url%';"
 
-php81 /var/www/magento2/bin/magento cache:flush || true
+# Cache flush may fail if Redis isn't up yet
+php81 /var/www/magento2/bin/magento cache:flush 2>/dev/null || true
 
 echo "Disabling product re-indexing..."
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule inventory || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock || true
+# These indexer commands may fail if Redis isn't up, that's OK
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule inventory 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price 2>/dev/null || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock 2>/dev/null || true
 
 exec "$@"

@@ -1,5 +1,6 @@
 # Exclude log files from Docker build context
 shopping_extracted/magento2/var/log
+shopping_extracted/magento2/var/dev
 shopping_extracted/magento2/var/cache
 shopping_extracted/magento2/var/page_cache
 shopping_extracted/magento2/var/session
