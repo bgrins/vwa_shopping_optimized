@@ -1,0 +1,23 @@
+
+services:
+  shopping:
+    image: ghcr.io/bgrins/vwa-shopping-optimized-bundled:latest
+    ports:
+      - "7771:80"
+      - "3306:3306"
+    environment:
+      - BASE_URL=http://localhost:7771
+      - MYSQL_ROOT_PASSWORD=1234567890
+      - MYSQL_PASSWORD=MyPassword
+      - MYSQL_USER=magentouser
+      - MYSQL_DATABASE=magentodb
+    restart: unless-stopped
+    # Uncomment to persist data between container recreations
+    # volumes:
+    #   - mysql_data:/var/lib/mysql
+    #   - magento_data:/var/www/magento2
+
+# Uncomment if using volumes
+# volumes:
+#   mysql_data:
+#   magento_data:
