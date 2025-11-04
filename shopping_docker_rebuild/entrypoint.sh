@@ -11,10 +11,10 @@ DISABLE=",$DISABLE,"
 
 for S in elasticsearch mailcatcher mysql redis; do
   DS=$(echo $DISABLE | grep -q ",$S," && echo "YES"  || echo "NO")
-  if [ "$DS" == "YES" ]; then
-    if [[ -f "/etc/supervisor.d/$S.ini" ]]; then mv "/etc/supervisor.d/$S.ini" "/etc/supervisor.d/$S"; fi
+  if [ "$DS" = "YES" ]; then
+    if [ -f "/etc/supervisor.d/$S.ini" ]; then mv "/etc/supervisor.d/$S.ini" "/etc/supervisor.d/$S"; fi
   else
-    if [[ -f "/etc/supervisor.d/$S" ]]; then mv "/etc/supervisor.d/$S" "/etc/supervisor.d/$S.ini"; fi
+    if [ -f "/etc/supervisor.d/$S" ]; then mv "/etc/supervisor.d/$S" "/etc/supervisor.d/$S.ini"; fi
   fi
 done
 
@@ -60,38 +60,28 @@ else
   echo "Using external MySQL at $MYSQL_HOST:$MYSQL_PORT"
 fi
 
-cat > /tmp/magento-env-setup.sh << 'EOF'
-#!/bin/sh
-sleep 30
+# Configure Magento directly (always run to ensure BASE_URL is correct)
+echo "Configuring Magento base URL to $BASE_URL..."
+php81 /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" || true
 
-if [ ! -f "/var/www/magento2/.configured" ]; then
-  echo "Configuring Magento base URL..."
-  /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" || true
-  
-  if [ "$DISABLE_MYSQL" != "YES" ]; then
-    mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "UPDATE core_config_data SET value='$BASE_URL/' WHERE path = 'web/secure/base_url';" || true
-  fi
-  
-  /var/www/magento2/bin/magento cache:flush || true
-  
-  echo "Disabling product re-indexing..."
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule inventory || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price || true
-  /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock || true
-  
-  touch /var/www/magento2/.configured
+if [ "$DISABLE_MYSQL" != "YES" ]; then
+  echo "Updating ALL database URLs to $BASE_URL/..."
+  mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "UPDATE core_config_data SET value='$BASE_URL/' WHERE path LIKE '%base_url%';" || true
 fi
-EOF
 
-chmod +x /tmp/magento-env-setup.sh
-nohup /tmp/magento-env-setup.sh > /var/log/magento-setup.log 2>&1 &
+php81 /var/www/magento2/bin/magento cache:flush || true
+
+echo "Disabling product re-indexing..."
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule inventory || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price || true
+php81 /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock || true
 
 exec "$@"

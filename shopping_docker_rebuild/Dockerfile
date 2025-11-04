@@ -1,29 +1,19 @@
-FROM bgrins/vwa-shopping-optimized-base:latest AS extractor
-# Extract data from the bloated image without including the runtime layers
-COPY --from=shopping_final_0712 /var/www/magento2 /var/www/magento2
-COPY --from=shopping_final_0712 /var/lib/mysql /var/lib/mysql
-
 FROM bgrins/vwa-shopping-optimized-base:latest AS base
-
-RUN mkdir -p /var/www/magento2 && \
-    chown -R www-data:www-data /var/www/magento2
 
 WORKDIR /var/www/magento2
 
-# Copy only the application files, not runtime data
-COPY --from=extractor /var/www/magento2 /var/www/magento2
-# Store MySQL data as template to be restored on first run
-COPY --from=extractor /var/lib/mysql /var/lib/mysql.template
-
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
-COPY entrypoint-optimized.sh /docker-entrypoint-optimized.sh
-RUN chmod +x /docker-entrypoint-optimized.sh
+COPY nginx-default.conf /etc/nginx/http.d/magento.conf
+COPY entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
 FROM base AS with-mysql
+# Store MySQL data as template to be restored on first run
+# Todo: Import from db dump instead of copying from live image
+COPY --from=shopping_final_0712 /var/lib/mysql /var/lib/mysql.template
 ENV DISABLE=""
 EXPOSE 80 3306 9200 6379 88 25
 
-ENTRYPOINT ["/docker-entrypoint-optimized.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["supervisord", "-n", "-j", "/supervisord.pid"]
 
 FROM base AS without-mysql
@@ -33,5 +23,5 @@ ENV MYSQL_HOST=mysql \
 
 EXPOSE 80 9200 6379 88 25
 
-ENTRYPOINT ["/docker-entrypoint-optimized.sh"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["supervisord", "-n", "-j", "/supervisord.pid"]
