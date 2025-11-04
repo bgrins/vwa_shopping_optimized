@@ -1,3 +1,7 @@
+# Get the working preloadable_libiconv.so from Alpine 3.13
+FROM alpine:3.13 AS iconv-source
+RUN apk add --no-cache gnu-libiconv
+
 FROM alpine:3.16
 
 ENV MYSQL_ROOT_PASSWORD=1234567890 \
@@ -48,14 +52,17 @@ RUN apk update && apk add --no-cache \
     git \
     curl \
     bash \
-    cronie \
-    gnu-libiconv
+    cronie
+
+# Copy the working preloadable_libiconv.so from Alpine 3.13
+COPY --from=iconv-source /usr/lib/preloadable_libiconv.so /usr/lib/preloadable_libiconv.so
 
 # Elasticsearch will need to be installed manually or run as separate container
 # Not available as Alpine package
 
 # Use GNU iconv instead of musl's limited implementation
 ENV LD_PRELOAD=/usr/lib/preloadable_libiconv.so
+ENV LC_ALL=en_US.UTF-8
 
 RUN gem install mailcatcher --no-document
 
@@ -63,7 +70,10 @@ RUN gem install mailcatcher --no-document
 RUN rm -f /usr/bin/php && \
     ln -s /usr/bin/php81 /usr/bin/php && \
     sed -i 's/^user = nobody/user = nginx/' /etc/php81/php-fpm.d/www.conf && \
-    sed -i 's/^group = nobody/group = nginx/' /etc/php81/php-fpm.d/www.conf
+    sed -i 's/^group = nobody/group = nginx/' /etc/php81/php-fpm.d/www.conf && \
+    echo 'env[LD_PRELOAD] = /usr/lib/preloadable_libiconv.so' >> /etc/php81/php-fpm.d/www.conf && \
+    echo 'env[LC_ALL] = en_US.UTF-8' >> /etc/php81/php-fpm.d/www.conf && \
+    echo 'clear_env = no' >> /etc/php81/php-fpm.d/www.conf
 
 # Create elasticsearch user for compatibility even if ES isn't installed
 # Also create a dummy elasticsearch command that just sleeps

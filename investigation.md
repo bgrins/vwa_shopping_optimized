@@ -118,3 +118,12 @@ docker exec shopping /var/www/magento2/bin/magento indexer:set-mode schedule cat
 
 ```
 
+
+
+```
+
+docker exec vwa-shopping-optimized-shopping-1 tail -5 /var/www/magento2/var/log/exception.log 2>&1 | grep -i iconv
+wc -l /var/www/magento2/var/log/exception.log
+
+
+```
