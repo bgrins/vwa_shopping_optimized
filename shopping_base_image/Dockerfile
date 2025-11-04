@@ -1,4 +1,4 @@
-FROM debian:12-slim
+FROM alpine:3.16
 
 ENV MYSQL_ROOT_PASSWORD=1234567890 \
     MYSQL_DATABASE=magentodb \
@@ -6,68 +6,84 @@ ENV MYSQL_ROOT_PASSWORD=1234567890 \
     MYSQL_PASSWORD=MyPassword \
     COMPOSER_ALLOW_SUPERUSER=1
 
-# Install required packages
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN apk update && apk add --no-cache \
     supervisor \
     nginx \
-    mariadb-server mariadb-client \
-    redis-server \
-    openjdk-17-jre-headless \
+    mysql mysql-client \
+    redis \
+    openjdk11-jre \
     ruby ruby-dev \
-    build-essential \
+    build-base \
     libffi-dev \
-    php8.2 \
-    php8.2-fpm \
-    php8.2-bcmath \
-    php8.2-curl \
-    php8.2-gd \
-    php8.2-intl \
-    php8.2-mbstring \
-    php8.2-mysql \
-    php8.2-opcache \
-    php8.2-soap \
-    php8.2-xml \
-    php8.2-xsl \
-    php8.2-zip \
+    php81 \
+    php81-fpm \
+    php81-bcmath \
+    php81-ctype \
+    php81-curl \
+    php81-dom \
+    php81-fileinfo \
+    php81-gd \
+    php81-iconv \
+    php81-intl \
+    php81-json \
+    php81-mbstring \
+    php81-mysqli \
+    php81-opcache \
+    php81-openssl \
+    php81-pdo \
+    php81-pdo_mysql \
+    php81-phar \
+    php81-session \
+    php81-simplexml \
+    php81-soap \
+    php81-sodium \
+    php81-tokenizer \
+    php81-xml \
+    php81-xmlreader \
+    php81-xmlwriter \
+    php81-xsl \
+    php81-zip \
+    php81-zlib \
     composer \
     git \
     curl \
-    wget \
-    gnupg \
-    ca-certificates \
-    lsb-release \
-    cron \
-    && rm -rf /var/lib/apt/lists/*
+    bash \
+    cronie
 
-# Install Elasticsearch from official repo (supports ARM64)
-RUN wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | gpg --dearmor -o /usr/share/keyrings/elastic.gpg && \
-    echo "deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main" > /etc/apt/sources.list.d/elastic-7.x.list && \
-    apt-get update && \
-    apt-get install -y elasticsearch && \
-    rm -rf /var/lib/apt/lists/*
+# Elasticsearch will need to be installed manually or run as separate container
+# Not available as Alpine package
 
 RUN gem install mailcatcher --no-document
 
-# Elasticsearch user is created by the package installation
-# Just ensure the directory permissions are correct
-RUN mkdir -p /usr/share/elasticsearch && \
-    chown -R elasticsearch:elasticsearch /usr/share/elasticsearch
+# Configure PHP 8.1 as default and fix PHP-FPM user
+RUN rm -f /usr/bin/php && \
+    ln -s /usr/bin/php81 /usr/bin/php && \
+    sed -i 's/^user = nobody/user = nginx/' /etc/php81/php-fpm.d/www.conf && \
+    sed -i 's/^group = nobody/group = nginx/' /etc/php81/php-fpm.d/www.conf
 
-# PHP 8.2 is already the default in Debian 12
-# Create php-fpm symlink for compatibility
-RUN ln -s /usr/sbin/php-fpm8.2 /usr/local/sbin/php-fpm
+# Create elasticsearch user for compatibility even if ES isn't installed
+# Also create a dummy elasticsearch command that just sleeps
+RUN adduser -D -h /usr/share/java/elasticsearch elastico && \
+    mkdir -p /usr/share/java/elasticsearch && \
+    chown -R elastico:elastico /usr/share/java/elasticsearch && \
+    echo '#!/bin/sh' > /usr/bin/elasticsearch && \
+    echo 'echo "Elasticsearch not installed, sleeping..."' >> /usr/bin/elasticsearch && \
+    echo 'sleep infinity' >> /usr/bin/elasticsearch && \
+    chmod +x /usr/bin/elasticsearch
 
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 COPY supervisor.d /etc/supervisor.d
 COPY supervisord.conf /etc/supervisord.conf
 
-RUN chmod +x /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh && \
+    rm -f /etc/nginx/http.d/default.conf /etc/nginx/conf.d/default.conf && \
+    echo -e "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0" >> /etc/my.cnf
 
 RUN mkdir -p /var/www/magento2 && \
-    chown -R www-data:www-data /var/www/magento2
+    chown -R nginx:nginx /var/www/magento2
 
 # Copy optimized Magento2 files with jpg30 images
-COPY --chown=www-data:www-data shopping_extracted/magento2 /var/www/magento2
+COPY --chown=nginx:nginx shopping_extracted/magento2 /var/www/magento2
 
 EXPOSE 80 3306 9200 6379 88 25
 

@@ -1,0 +1,1 @@
+/var/www/magento2/vendor/magento/module-msrp/view/base/web/js/msrp.js

@@ -1,0 +1,1 @@
+/var/www/magento2/vendor/magento/module-configurable-product/view/adminhtml/web/js/components/custom-options-price-type.js
