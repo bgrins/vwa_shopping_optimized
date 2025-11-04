@@ -5,6 +5,9 @@ shopping_base_image/shopping_extracted/magento2/dev
 shopping_base_image/shopping_extracted/magento2/vendor
 shopping_base_image/shopping_extracted/mysql_data
 shopping_base_image/shopping_extracted/magento2/var
+node_modules
+
+test-results
 
 backup_cache
 

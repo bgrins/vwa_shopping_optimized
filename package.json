@@ -1,0 +1,15 @@
+{
+  "name": "shopping-site-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for shopping site",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --reporter=list",
+    "test:headed": "playwright test --headed --reporter=list",
+    "test:ui": "playwright test --ui --reporter=list",
+    "test:debug": "playwright test --debug --reporter=list"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.1"
+  }
+}

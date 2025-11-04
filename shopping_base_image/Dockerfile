@@ -48,10 +48,14 @@ RUN apk update && apk add --no-cache \
     git \
     curl \
     bash \
-    cronie
+    cronie \
+    gnu-libiconv
 
 # Elasticsearch will need to be installed manually or run as separate container
 # Not available as Alpine package
+
+# Use GNU iconv instead of musl's limited implementation
+ENV LD_PRELOAD=/usr/lib/preloadable_libiconv.so
 
 RUN gem install mailcatcher --no-document
 

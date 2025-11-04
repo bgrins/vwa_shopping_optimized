@@ -1,6 +1,12 @@
 ## Running
 
 
+## Summary of changes
+
+* In the container the `shopping_extracted/magento2/pub/media/catalog/product/cache` is 20GB and unnecessary. This is removed.
+* In the container the `/var/www/magento2/pub/media/catalog` is 5.6GB with 195,360 JPGs. After compressing at 30% qualitty this shrinks to 3.2GB.
+* Other misc directories are ignored to optimize space (see `./shopping_base_image/.dockerignore`)
+
 ## First time setup
 
 Download https://drive.usercontent.google.com/download?id=1gxXalk9O0p9eu1YkIJcmZta1nvvyAJpA&export=download&authuser=0
@@ -30,7 +36,7 @@ docker exec shopping mysqldump --no-tablespaces -u root -p1234567890 magentodb >
 xz -9 -k shopping_docker_rebuild/mysql-baked/magento_dump.sql
 
 # Remove enormous & unnecessary cache dir before copying
-docker exec shopping rm -r /var/www/magento2/pub
+docker exec shopping rm -r /var/www/magento2/pub/media/catalog/product/cache
 
 docker cp shopping:/etc/supervisord.conf shopping_base_image/supervisord.conf
 docker cp shopping:/etc/nginx/conf.d/default.conf shopping_base_image/nginx-default.conf
