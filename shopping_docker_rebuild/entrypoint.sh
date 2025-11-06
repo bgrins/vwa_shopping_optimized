@@ -86,6 +86,47 @@ if [ "$DISABLE_MYSQL" != "YES" ]; then
   MYSQL_HOST=localhost
 else
   echo "Using external MySQL at $MYSQL_HOST:$MYSQL_PORT"
+
+  # Configure Magento database connection for external MySQL
+  echo "Updating Magento env.php with external database credentials..."
+
+  # Using PHP to safely update the configuration
+  cat > /tmp/update-db-config.php <<'PHPEOF'
+<?php
+$envFile = '/var/www/magento2/app/etc/env.php';
+$env = include $envFile;
+
+// Get MySQL configuration from environment
+$mysqlHost = getenv('MYSQL_HOST') ?: 'localhost';
+$mysqlPort = getenv('MYSQL_PORT') ?: '3306';
+$mysqlDatabase = getenv('MYSQL_DATABASE') ?: 'magentodb';
+$mysqlUser = getenv('MYSQL_USER') ?: 'magentouser';
+$mysqlPassword = getenv('MYSQL_PASSWORD') ?: 'MyPassword';
+
+// Magento requires port to be part of the host string, not a separate parameter
+$hostWithPort = $mysqlHost;
+if ($mysqlPort && $mysqlPort !== '3306') {
+    $hostWithPort = $mysqlHost . ':' . $mysqlPort;
+}
+
+// Update database configuration
+$env['db']['connection']['default']['host'] = $hostWithPort;
+$env['db']['connection']['default']['dbname'] = $mysqlDatabase;
+$env['db']['connection']['default']['username'] = $mysqlUser;
+$env['db']['connection']['default']['password'] = $mysqlPassword;
+
+// Remove port key if it exists (Magento doesn't support it)
+if (isset($env['db']['connection']['default']['port'])) {
+    unset($env['db']['connection']['default']['port']);
+}
+
+// Write back to file
+file_put_contents($envFile, "<?php\nreturn " . var_export($env, true) . ";\n");
+echo "Database configuration updated successfully\n";
+PHPEOF
+
+  php /tmp/update-db-config.php
+  rm -f /tmp/update-db-config.php
 fi
 
 # Configure Redis if external host is specified
