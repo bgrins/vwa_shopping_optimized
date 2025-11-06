@@ -7,8 +7,9 @@ COPY update-magento-urls.sh /usr/local/bin/update-magento-urls.sh
 RUN chmod +x /docker-entrypoint.sh /usr/local/bin/update-magento-urls.sh
 
 FROM base AS with-mysql
+
 # Import MySQL dump during build to create golden state
-COPY mysql-baked/magento_dump.sql.xz /tmp/magento_dump.sql.xz
+COPY magento_dump.sql.xz /tmp/magento_dump.sql.xz
 COPY init-mysql-build.sh /tmp/init-mysql-build.sh
 
 # Initialize MySQL and import the database dump

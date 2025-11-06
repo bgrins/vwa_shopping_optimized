@@ -74,6 +74,7 @@ RUN mkdir -p /usr/share/java && \
     echo "xpack.monitoring.collection.enabled: false" >> /usr/share/java/elasticsearch/config/elasticsearch.yml && \
     echo "xpack.watcher.enabled: false" >> /usr/share/java/elasticsearch/config/elasticsearch.yml && \
     echo "ingest.geoip.downloader.enabled: false" >> /usr/share/java/elasticsearch/config/elasticsearch.yml && \
+    echo "index.codec: best_compression" >> /usr/share/java/elasticsearch/config/elasticsearch.yml && \
     chown -R elastico:elastico /usr/share/java/elasticsearch && \
     chown -R elastico:elastico /var/lib/elasticsearch && \
     rm elasticsearch-7.17.0-linux-${ES_ARCH}.tar.gz && \
@@ -84,44 +85,9 @@ RUN mkdir -p /usr/share/java && \
     echo "-Xms1024m" > /usr/share/java/elasticsearch/config/jvm.options.d/memory.options && \
     echo "-Xmx1024m" >> /usr/share/java/elasticsearch/config/jvm.options.d/memory.options
 
-# Copy Elasticsearch data with re-indexed search index (from completed reindex)
-COPY --chown=elastico:elastico elasticsearch_data_reindexed /usr/share/java/elasticsearch/data
-
-# DEPRECATED: OpenSearch 2.11.1 installation (Alpine/musl compatibility issues)
-# ARG TARGETARCH
-# RUN mkdir -p /usr/share/java && \
-#     if [ "$TARGETARCH" = "arm64" ]; then \
-#         OPENSEARCH_ARCH="arm64"; \
-#     else \
-#         OPENSEARCH_ARCH="x64"; \
-#     fi && \
-#     wget -q https://artifacts.opensearch.org/releases/bundle/opensearch/2.11.1/opensearch-2.11.1-linux-${OPENSEARCH_ARCH}.tar.gz && \
-#     tar -xzf opensearch-2.11.1-linux-${OPENSEARCH_ARCH}.tar.gz -C /usr/share/java/ && \
-#     mv /usr/share/java/opensearch-2.11.1 /usr/share/java/opensearch && \
-#     mkdir -p /var/lib/opensearch && \
-#     echo "" >> /usr/share/java/opensearch/config/opensearch.yml && \
-#     echo "plugins.security.disabled: true" >> /usr/share/java/opensearch/config/opensearch.yml && \
-#     echo "plugins.ml.enabled: false" >> /usr/share/java/opensearch/config/opensearch.yml && \
-#     echo "discovery.type: single-node" >> /usr/share/java/opensearch/config/opensearch.yml && \
-#     echo "network.host: 0.0.0.0" >> /usr/share/java/opensearch/config/opensearch.yml && \
-#     chown -R elastico:elastico /usr/share/java/opensearch && \
-#     chown -R elastico:elastico /var/lib/opensearch && \
-#     rm opensearch-2.11.1-linux-${OPENSEARCH_ARCH}.tar.gz
-#
-# # Copy Elasticsearch 7.17 data (compatible with OpenSearch)
-# COPY --chown=elastico:elastico elasticsearch_data_reindexed /usr/share/java/opensearch/data
-
-# DEPRECATED: Old approach copying from upstream container
-# # Replace ES 6.4.3 bin/config/lib/modules with 7.17.0 versions from upstream
-# RUN rm -rf /usr/share/java/elasticsearch/bin /usr/share/java/elasticsearch/config /usr/share/java/elasticsearch/lib /usr/share/java/elasticsearch/modules && \
-#     mkdir -p /usr/share/java/elasticsearch/logs /var/lib/elasticsearch/_default/plugins && \
-#     chown elastico:elastico /usr/share/java/elasticsearch/logs && \
-#     chown -R elastico:elastico /var/lib/elasticsearch
-#
-# COPY elasticsearch_bin_7.17.0 /usr/share/java/elasticsearch/bin
-# COPY elasticsearch_config_7.17.0 /usr/share/java/elasticsearch/config
-# COPY elasticsearch_lib_7.17.0 /usr/share/java/elasticsearch/lib
-# COPY elasticsearch_modules_7.17.0 /usr/share/java/elasticsearch/modules
+# Copy pre-indexed Elasticsearch data (104k products, ~850MB)
+# This allows instant search on startup without 10-12 minute reindex
+COPY --chown=elastico:elastico elasticsearch_data_upstream /usr/share/java/elasticsearch/data
 
 # Configure PHP 8.2 as default and fix PHP-FPM user
 RUN sed -i 's/^user = www-data/user = www-data/' /etc/php/8.2/fpm/pool.d/www.conf && \
@@ -139,7 +105,7 @@ RUN rm -f /etc/nginx/sites-enabled/default && \
 
 # Configure MySQL/MariaDB
 RUN mkdir -p /etc/mysql/conf.d && \
-    echo -e "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0" >> /etc/mysql/conf.d/custom.cnf
+    printf "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0\n" > /etc/mysql/conf.d/custom.cnf
 
 # Set up Magento directory
 RUN mkdir -p /var/www/magento2 && \
