@@ -1,15 +1,15 @@
 ## Running
 
+A reproduction of [Visual Web Arena OneStopShop](https://github.com/web-arena-x/visualwebarena/tree/89f5af29305c3d1e9f97ce4421462060a70c9a03/environment_docker#shopping-website-onestopshop)
+
 
 ## Summary of changes
 
-* Migrated from Alpine Linux to Debian 12-slim for better glibc compatibility with Elasticsearch
+* Migrated from Alpine Linux to Debian 12-slim for better compatibility with Elasticsearch
 * In the container the `shopping_extracted/magento2/pub/media/catalog/product/cache` is 20GB and unnecessary. This is removed.
 * In the container the `/var/www/magento2/pub/media/catalog` is 5.6GB with 195,360 JPGs. After compressing at 30% quality this shrinks to 3.2GB.
 * Elasticsearch 7.17.0 installed from official tar archive with JDK symlink and 1GB memory limit
-* Elasticsearch index pre-built with `best_compression` codec (676MB, saves 21% vs default compression)
-* Pre-indexed search catalog with 104,368 products - instant search on startup
-* PHP upgraded to 8.2, Java upgraded to OpenJDK 17
+* Elasticsearch index pre-built and baked into image
 * Other misc directories are ignored to optimize space (see `./shopping_base_image/.dockerignore`)
 
 ## Usage
@@ -41,7 +41,7 @@ docker compose up -d
 **Base Image** (`shopping_base_image/`):
 - Debian 12-slim base
 - Elasticsearch 7.17.0 (official tar, multi-arch support) with `best_compression` codec
-- Pre-built search index (104k products, 676MB with 21% compression savings)
+- Pre-built search index
 - PHP 8.2 with all required extensions
 - MariaDB, Redis, Nginx, Supervisor
 - Mailcatcher for email testing
@@ -78,13 +78,3 @@ docker exec vwa-shopping-optimized-shopping-1 php -d memory_limit=2G \
 docker cp vwa-shopping-optimized-shopping-1:/usr/share/java/elasticsearch/data \
   shopping_base_image/elasticsearch_data_upstream
 ```
-
-The index uses `best_compression` codec (configured in Dockerfile) for 21% disk space savings (676MB vs 856MB).
-
-## Migration Notes
-
-See `DEBIAN_MIGRATION_NOTES.md` for details on the Alpine to Debian 12 migration, including:
-- Elasticsearch JDK symlink requirement
-- Memory limit configuration
-- Package and path differences
-- Testing results

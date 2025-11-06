@@ -115,11 +115,10 @@ echo "Configuring Magento base URL to $BASE_URL..."
 # This may fail if Redis isn't up yet, that's OK
 php /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" 2>/dev/null || true
 
-if [ "$DISABLE_MYSQL" != "YES" ]; then
-  # Launch background script to update URLs after MySQL is ready
-  echo "Scheduling database URL update..."
-  nohup /usr/local/bin/update-magento-urls.sh > /var/log/update-urls.log 2>&1 &
-fi
+# Launch background script to update URLs after MySQL is ready
+# This runs for both bundled and external MySQL
+echo "Scheduling database URL update..."
+nohup /usr/local/bin/update-magento-urls.sh > /var/log/update-urls.log 2>&1 &
 
 # Cache flush may fail if Redis isn't up yet
 php /var/www/magento2/bin/magento cache:flush 2>/dev/null || true
