@@ -1,6 +1,37 @@
 
 services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    networks:
+      - shopping-network
+    # Uncomment to persist Redis data
+    # volumes:
+    #   - redis_data:/data
+
+  # opensearch:
+  #   image: opensearchproject/opensearch:2.11.1
+  #   environment:
+  #     - discovery.type=single-node
+  #     - bootstrap.memory_lock=true
+  #     - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+  #     - "DISABLE_SECURITY_PLUGIN=true"  # Disable security for local dev
+  #   ulimits:
+  #     memlock:
+  #       soft: -1
+  #       hard: -1
+  #     nofile:
+  #       soft: 65536
+  #       hard: 65536
+  #   restart: unless-stopped
+  #   networks:
+  #     - shopping-network
+  #   # Uncomment to persist OpenSearch data
+  #   # volumes:
+  #   #   - opensearch_data:/usr/share/opensearch/data
+
   shopping:
+    # platform: linux/amd64  # No longer needed with OpenSearch (native ARM64 support)
     image: ghcr.io/bgrins/vwa-shopping-optimized-bundled:latest
     ports:
       - "7771:80"
@@ -11,13 +42,30 @@ services:
       - MYSQL_PASSWORD=MyPassword
       - MYSQL_USER=magentouser
       - MYSQL_DATABASE=magentodb
+      # Use external Redis service
+      # - REDIS_HOST=redis
+      # - REDIS_PORT=6379
+      # Use external OpenSearch service
+      # - OPENSEARCH_HOST=opensearch
+      # - OPENSEARCH_PORT=9200
+    depends_on:
+      - redis
+      # - opensearch
     restart: unless-stopped
+    networks:
+      - shopping-network
     # Uncomment to persist data between container recreations
     # volumes:
     #   - mysql_data:/var/lib/mysql
     #   - magento_data:/var/www/magento2
 
+networks:
+  shopping-network:
+    driver: bridge
+
 # Uncomment if using volumes
 # volumes:
 #   mysql_data:
 #   magento_data:
+#   redis_data:
+#   opensearch_data:

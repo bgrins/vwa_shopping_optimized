@@ -5,13 +5,17 @@ shopping_base_image/shopping_extracted/magento2/dev
 shopping_base_image/shopping_extracted/magento2/vendor
 shopping_base_image/shopping_extracted/mysql_data
 shopping_base_image/shopping_extracted/magento2/var
+elasticsearch_data_es7
+elasticsearch_data_upstream
+shopping_base_image/elasticsearch_*
 node_modules
 
 test-results
 
 backup_cache
 
-shopping_docker_rebuild/mysql-baked/magento_dump.sql
-shopping_docker_rebuild/mysql-baked/magento_dump.sql.xz
+magento_dump.sql
+magento_dump.sql.xz
+magento_dump.sql.gz
 
 shopping_extracted_*

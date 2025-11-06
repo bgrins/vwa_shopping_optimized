@@ -1,58 +1,79 @@
-FROM debian:12-slim
+# Get the working preloadable_libiconv.so from Alpine 3.13
+FROM alpine:3.13 AS iconv-source
+RUN apk add --no-cache gnu-libiconv
+
+FROM alpine:3.16
 
 ENV MYSQL_ROOT_PASSWORD=1234567890 \
     MYSQL_DATABASE=magentodb \
     MYSQL_USER=magentouser \
     MYSQL_PASSWORD=MyPassword \
     COMPOSER_ALLOW_SUPERUSER=1 \
-    PATH=/usr/share/java/elasticsearch/bin:$PATH \
-    DEBIAN_FRONTEND=noninteractive
+    PATH=/usr/share/java/elasticsearch/bin:$PATH
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Add Alpine 3.12 community repo for legacy Elasticsearch 6.4.3
+# DEPRECATED: Using official tar installation instead
+# RUN echo '@legacy https://dl-cdn.alpinelinux.org/alpine/v3.12/community' >> /etc/apk/repositories
+
+RUN apk update && apk add --no-cache \
     supervisor \
     nginx \
-    mariadb-server mariadb-client \
-    redis-server \
-    openjdk-17-jre-headless \
+    mysql mysql-client \
+    redis \
+    # openjdk8-jre@legacy \
+    openjdk11 \
+    # elasticsearch@legacy \
     ruby ruby-dev \
-    build-essential \
+    build-base \
     libffi-dev \
-    php8.2 \
-    php8.2-fpm \
-    php8.2-bcmath \
-    php8.2-ctype \
-    php8.2-curl \
-    php8.2-dom \
-    php8.2-fileinfo \
-    php8.2-gd \
-    php8.2-iconv \
-    php8.2-intl \
-    php8.2-mbstring \
-    php8.2-mysql \
-    php8.2-opcache \
-    php8.2-phar \
-    php8.2-simplexml \
-    php8.2-soap \
-    php8.2-tokenizer \
-    php8.2-xml \
-    php8.2-xmlreader \
-    php8.2-xmlwriter \
-    php8.2-xsl \
-    php8.2-zip \
+    php81 \
+    php81-fpm \
+    php81-bcmath \
+    php81-ctype \
+    php81-curl \
+    php81-dom \
+    php81-fileinfo \
+    php81-gd \
+    php81-iconv \
+    php81-intl \
+    php81-json \
+    php81-mbstring \
+    php81-mysqli \
+    php81-opcache \
+    php81-openssl \
+    php81-pdo \
+    php81-pdo_mysql \
+    php81-phar \
+    php81-session \
+    php81-simplexml \
+    php81-soap \
+    php81-sodium \
+    php81-tokenizer \
+    php81-xml \
+    php81-xmlreader \
+    php81-xmlwriter \
+    php81-xsl \
+    php81-zip \
+    php81-zlib \
     composer \
     git \
     curl \
     wget \
     bash \
-    cron \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    cronie && \
+    ln -sf java-11-openjdk /usr/lib/jvm/default-jvm
 
-# Create elastico user for Elasticsearch
-RUN groupadd -g 1000 elastico && \
-    useradd -m -u 1000 -g elastico -s /bin/bash elastico
+# Create elastico user for OpenSearch/Elasticsearch
+RUN addgroup -g 1000 elastico && \
+    adduser -D -u 1000 -G elastico -s /bin/ash elastico
 
-# Install mailcatcher
+# Copy the working preloadable_libiconv.so from Alpine 3.13
+COPY --from=iconv-source /usr/lib/preloadable_libiconv.so /usr/lib/preloadable_libiconv.so
+
+# Use GNU iconv
+ENV LD_PRELOAD=/usr/lib/preloadable_libiconv.so
+ENV LC_ALL=en_US.UTF-8
+
 RUN gem install mailcatcher --no-document
 
 # Install Elasticsearch 7.17.0 from official tar (multi-platform support)
@@ -76,13 +97,7 @@ RUN mkdir -p /usr/share/java && \
     echo "ingest.geoip.downloader.enabled: false" >> /usr/share/java/elasticsearch/config/elasticsearch.yml && \
     chown -R elastico:elastico /usr/share/java/elasticsearch && \
     chown -R elastico:elastico /var/lib/elasticsearch && \
-    rm elasticsearch-7.17.0-linux-${ES_ARCH}.tar.gz && \
-    # Create JDK symlink since we're using system Java instead of bundled JDK \
-    ln -s /usr/lib/jvm/java-17-openjdk-$(dpkg --print-architecture) /usr/share/java/elasticsearch/jdk && \
-    # Limit memory usage to 1GB (default tries to use 4GB) \
-    mkdir -p /usr/share/java/elasticsearch/config/jvm.options.d && \
-    echo "-Xms1024m" > /usr/share/java/elasticsearch/config/jvm.options.d/memory.options && \
-    echo "-Xmx1024m" >> /usr/share/java/elasticsearch/config/jvm.options.d/memory.options
+    rm elasticsearch-7.17.0-linux-${ES_ARCH}.tar.gz
 
 # Copy Elasticsearch data with re-indexed search index (from completed reindex)
 COPY --chown=elastico:elastico elasticsearch_data_reindexed /usr/share/java/elasticsearch/data
@@ -123,29 +138,26 @@ COPY --chown=elastico:elastico elasticsearch_data_reindexed /usr/share/java/elas
 # COPY elasticsearch_lib_7.17.0 /usr/share/java/elasticsearch/lib
 # COPY elasticsearch_modules_7.17.0 /usr/share/java/elasticsearch/modules
 
-# Configure PHP 8.2 as default and fix PHP-FPM user
-RUN sed -i 's/^user = www-data/user = www-data/' /etc/php/8.2/fpm/pool.d/www.conf && \
-    sed -i 's/^group = www-data/group = www-data/' /etc/php/8.2/fpm/pool.d/www.conf && \
-    sed -i 's/^listen = .*/listen = 127.0.0.1:9000/' /etc/php/8.2/fpm/pool.d/www.conf
+# Configure PHP 8.1 as default and fix PHP-FPM user
+RUN rm -f /usr/bin/php && \
+    ln -s /usr/bin/php81 /usr/bin/php && \
+    sed -i 's/^user = nobody/user = nginx/' /etc/php81/php-fpm.d/www.conf && \
+    sed -i 's/^group = nobody/group = nginx/' /etc/php81/php-fpm.d/www.conf && \
+    echo 'env[LD_PRELOAD] = /usr/lib/preloadable_libiconv.so' >> /etc/php81/php-fpm.d/www.conf && \
+    echo 'env[LC_ALL] = en_US.UTF-8' >> /etc/php81/php-fpm.d/www.conf && \
+    echo 'clear_env = no' >> /etc/php81/php-fpm.d/www.conf
 
-# Configure supervisor
-COPY supervisor.d /etc/supervisor/conf.d
-COPY supervisord.conf /etc/supervisor/supervisord.conf
+COPY supervisor.d /etc/supervisor.d
+COPY supervisord.conf /etc/supervisord.conf
+COPY nginx-default.conf /etc/nginx/http.d/magento.conf
 
-# Configure nginx
-COPY nginx-default.conf /etc/nginx/sites-available/magento.conf
-RUN rm -f /etc/nginx/sites-enabled/default && \
-    ln -s /etc/nginx/sites-available/magento.conf /etc/nginx/sites-enabled/magento.conf
+RUN rm -f /etc/nginx/http.d/default.conf /etc/nginx/conf.d/default.conf && \
+    echo -e "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0" >> /etc/my.cnf
 
-# Configure MySQL/MariaDB
-RUN mkdir -p /etc/mysql/conf.d && \
-    echo -e "[mysqld]\nbind-address = 0.0.0.0\nskip-networking = 0" >> /etc/mysql/conf.d/custom.cnf
-
-# Set up Magento directory
 RUN mkdir -p /var/www/magento2 && \
-    chown -R www-data:www-data /var/www/magento2
+    chown -R nginx:nginx /var/www/magento2
 
 # Copy Magento2 files extracted from shopping_final_0712 with fewer files and optimized images (jpg 30)
-COPY --chown=www-data:www-data shopping_extracted/magento2 /var/www/magento2
+COPY --chown=nginx:nginx shopping_extracted/magento2 /var/www/magento2
 
 EXPOSE 80 3306 9200 6379 88 25

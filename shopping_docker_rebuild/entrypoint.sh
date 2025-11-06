@@ -6,15 +6,24 @@ MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-1234567890}
 MYSQL_PASSWORD=${MYSQL_PASSWORD:-MyPassword}
 MYSQL_USER=${MYSQL_USER:-magentouser}
 MYSQL_DATABASE=${MYSQL_DATABASE:-magentodb}
+REDIS_HOST=${REDIS_HOST:-127.0.0.1}
+REDIS_PORT=${REDIS_PORT:-6379}
+REDIS_PASSWORD=${REDIS_PASSWORD:-}
 
 DISABLE=",$DISABLE,"
+
+# Auto-disable local Redis if external Redis is configured
+if [ "$REDIS_HOST" != "127.0.0.1" ] && [ "$REDIS_HOST" != "localhost" ]; then
+  echo "External Redis configured at $REDIS_HOST:$REDIS_PORT, disabling local Redis..."
+  DISABLE="$DISABLE,redis"
+fi
 
 for S in elasticsearch mailcatcher mysql redis; do
   DS=$(echo $DISABLE | grep -q ",$S," && echo "YES"  || echo "NO")
   if [ "$DS" = "YES" ]; then
-    if [ -f "/etc/supervisor.d/$S.ini" ]; then mv "/etc/supervisor.d/$S.ini" "/etc/supervisor.d/$S"; fi
+    if [ -f "/etc/supervisor/conf.d/$S.ini" ]; then mv "/etc/supervisor/conf.d/$S.ini" "/etc/supervisor/conf.d/$S"; fi
   else
-    if [ -f "/etc/supervisor.d/$S" ]; then mv "/etc/supervisor.d/$S" "/etc/supervisor.d/$S.ini"; fi
+    if [ -f "/etc/supervisor/conf.d/$S" ]; then mv "/etc/supervisor/conf.d/$S" "/etc/supervisor/conf.d/$S.ini"; fi
   fi
 done
 
@@ -22,21 +31,39 @@ DISABLE_MYSQL=$(echo $DISABLE | grep -q ",mysql," && echo "YES"  || echo "NO")
 
 if [ ! -d "/var/tmp/nginx/client_body" ]; then
   mkdir -p /run/nginx /var/tmp/nginx/client_body
-  chown nginx:nginx -R /run/nginx /var/tmp/nginx/
+  chown www-data:www-data -R /run/nginx /var/tmp/nginx/
 fi
 
 if [ "$DISABLE_MYSQL" != "YES" ]; then
+  # Check if we should reset to golden state
+  RESET_DB_ON_START=${RESET_DB_ON_START:-false}
+  
+  if [ "$RESET_DB_ON_START" = "true" ] && [ -d "/var/lib/mysql.golden" ]; then
+    echo "RESET_DB_ON_START is true, resetting database to golden state..."
+    rm -rf /var/lib/mysql
+    cp -R /var/lib/mysql.golden /var/lib/mysql
+    chown -R mysql:mysql /var/lib/mysql
+    rm -f /run/mysqld/.init
+    echo "Database reset to golden state complete"
+  fi
+  
   if [ ! -f "/run/mysqld/.init" ]; then
-    echo "Initializing MySQL database..."
-    mkdir -p /run/mysqld /var/lib/mysql
-    chown mysql:mysql -R /run/mysqld /var/lib/mysql
+    echo "Initializing MySQL runtime directories..."
+    mkdir -p /run/mysqld
+    chown mysql:mysql -R /run/mysqld
     
-    if [ -d "/var/lib/mysql.template" ] && [ ! -f "/var/lib/mysql/.initialized" ]; then
-      echo "Restoring pre-populated database..."
-      cp -R /var/lib/mysql.template/* /var/lib/mysql/
+    # Check if database already exists (from build stage)
+    if [ -d "/var/lib/mysql/mysql" ]; then
+      echo "Using pre-built database from image"
+    elif [ -d "/var/lib/mysql.golden" ]; then
+      echo "Restoring database from golden state..."
+      cp -R /var/lib/mysql.golden /var/lib/mysql
       chown -R mysql:mysql /var/lib/mysql
-      touch /var/lib/mysql/.initialized
     else
+      # Fallback: create empty database if no golden state exists
+      echo "No pre-built database found, creating empty database..."
+      mkdir -p /var/lib/mysql
+      chown mysql:mysql -R /var/lib/mysql
       mysql_install_db --user=mysql --datadir=/var/lib/mysql
       
       SQL=$(mktemp)
@@ -61,10 +88,32 @@ else
   echo "Using external MySQL at $MYSQL_HOST:$MYSQL_PORT"
 fi
 
+# Configure Redis if external host is specified
+if [ "$REDIS_HOST" != "127.0.0.1" ] || [ "$REDIS_PORT" != "6379" ] || [ -n "$REDIS_PASSWORD" ]; then
+  echo "Configuring Magento to use Redis at $REDIS_HOST:$REDIS_PORT..."
+  php /var/www/magento2/bin/magento setup:config:set \
+    --cache-backend=redis \
+    --cache-backend-redis-server="$REDIS_HOST" \
+    --cache-backend-redis-port="$REDIS_PORT" \
+    --cache-backend-redis-password="$REDIS_PASSWORD" \
+    --cache-backend-redis-db=0 \
+    --page-cache=redis \
+    --page-cache-redis-server="$REDIS_HOST" \
+    --page-cache-redis-port="$REDIS_PORT" \
+    --page-cache-redis-password="$REDIS_PASSWORD" \
+    --page-cache-redis-db=1 \
+    --session-save=redis \
+    --session-save-redis-host="$REDIS_HOST" \
+    --session-save-redis-port="$REDIS_PORT" \
+    --session-save-redis-password="$REDIS_PASSWORD" \
+    --session-save-redis-db=2 \
+    -n 2>/dev/null || true
+fi
+
 # Configure Magento directly (always run to ensure BASE_URL is correct)
 echo "Configuring Magento base URL to $BASE_URL..."
 # This may fail if Redis isn't up yet, that's OK
-php81 /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" 2>/dev/null || true
+php /var/www/magento2/bin/magento setup:store-config:set --base-url="$BASE_URL" 2>/dev/null || true
 
 if [ "$DISABLE_MYSQL" != "YES" ]; then
   # Launch background script to update URLs after MySQL is ready
@@ -73,20 +122,20 @@ if [ "$DISABLE_MYSQL" != "YES" ]; then
 fi
 
 # Cache flush may fail if Redis isn't up yet
-php81 /var/www/magento2/bin/magento cache:flush 2>/dev/null || true
+php /var/www/magento2/bin/magento cache:flush 2>/dev/null || true
 
 echo "Disabling product re-indexing..."
 # These indexer commands may fail if Redis isn't up, that's OK
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule inventory 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price 2>/dev/null || true
-php81 /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_product 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalogrule_rule 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalogsearch_fulltext 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalog_category_product 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule customer_grid 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule design_config_grid 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule inventory 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_category 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_attribute 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule catalog_product_price 2>/dev/null || true
+php /var/www/magento2/bin/magento indexer:set-mode schedule cataloginventory_stock 2>/dev/null || true
 
 exec "$@"

@@ -25,7 +25,7 @@ if mysql -h$MYSQL_HOST -u$MYSQL_USER -p$MYSQL_PASSWORD $MYSQL_DATABASE -e "UPDAT
   
   # Flush cache after successful update
   echo "Flushing Magento cache..."
-  php81 /var/www/magento2/bin/magento cache:flush 2>/dev/null || echo "Cache flush failed (Redis might not be ready)"
+  php /var/www/magento2/bin/magento cache:flush 2>/dev/null || echo "Cache flush failed (Redis might not be ready)"
 else
   echo "ERROR: Failed to update database URLs!"
   exit 1

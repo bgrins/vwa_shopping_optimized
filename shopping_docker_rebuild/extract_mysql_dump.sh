@@ -13,14 +13,13 @@ docker start temp_extract
 echo "Waiting for MySQL to start..."
 sleep 20  # Give MySQL more time to start
 
+docker exec temp_extract php81 /var/www/magento2/bin/magento cache:flush
+
 # Export the database
 echo "Exporting magentodb database..."
-docker exec temp_extract mysqldump -u root -p1234567890 magentodb > mysql-baked/magento_dump.sql || {
-    echo "Failed to export database. Trying alternative approach..."
-    # Alternative: copy the MySQL data directory
-    mkdir -p ../shopping_extracted/
-    docker cp temp_extract:/var/lib/mysql ../shopping_extracted/mysql_data_backup
-}
+docker exec temp_extract mysqldump -u root -p1234567890 magentodb > magento_dump.sql
+xz -k magento_dump.sql
+gzip magento_dump.sql
 
 # Stop and remove temporary container
 docker stop temp_extract
